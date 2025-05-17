@@ -1,7 +1,25 @@
 ##############################################3
-# Testing
+# Variables
+
+VERSION := 0.0.1
+MONOLITH_IMAGE := critiquefy-service/monolith/$(VERSION)
+
+##############################################3
+# Building and Running
+
 run:
 	go run ./api/monolith
+
+build-docker:
+	docker build \
+		-f zarf/docker/dockerfile.monolith \
+		-t $(MONOLITH_IMAGE) \
+		--build-arg BUILD_REF=$(VERSION) \
+		--build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+		.
+
+run-docker:
+	docker run -p 3000:3000 -p 3010:3010 $(MONOLITH_IMAGE) 
 
 ##############################################3
 # Testing

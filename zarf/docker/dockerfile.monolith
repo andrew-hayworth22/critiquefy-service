@@ -1,0 +1,31 @@
+# Build the Go Binary.
+FROM golang:1.24 AS build_critiquefy
+ENV CGO_ENABLED=0
+ARG BUILD_REF
+EXPOSE 3000 3010
+
+# Copy the source code into the container.
+COPY . /critiquefy-service
+
+# Build the service binary.
+WORKDIR /critiquefy-service/api/monolith
+RUN go build -ldflags "-X main.build=${BUILD_REF}"
+
+# Run the Go Binary in Alpine.
+FROM alpine:3.21
+ARG BUILD_DATE
+ARG BUILD_REF
+RUN addgroup -g 1000 -S critiquefy && \
+    adduser -u 1000 -h /monolith -G critiquefy -S critiquefy
+COPY --from=build_critiquefy --chown=monolith:monolith /critiquefy-service/zarf/keys/. /critiquefy-service/zarf/keys/.
+COPY --from=build_critiquefy --chown=monolith:monolith /critiquefy-service/api/monolith/monolith /critiquefy-service/monolith
+WORKDIR /critiquefy-service
+USER critiquefy
+CMD ["./monolith"]
+
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="critiquefy-service" \
+      org.opencontainers.image.authors="Michael Hayworth <andy.hayworth@outlook.com>" \
+      org.opencontainers.image.source="https://github.com/andrew-hayworth22/critiquefy-service" \
+      org.opencontainers.image.revision="${BUILD_REF}" \
+      org.opencontainers.image.vendor="Michael Hayworth"
