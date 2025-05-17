@@ -1,0 +1,87 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"runtime"
+	"time"
+
+	"github.com/andrew-hayworth22/critiquefy-service/foundation/keystore"
+	"github.com/andrew-hayworth22/critiquefy-service/foundation/logger"
+	"github.com/andrew-hayworth22/critiquefy-service/foundation/web"
+	"github.com/ardanlabs/conf/v3"
+)
+
+var build = "develop"
+
+func main() {
+	// -----------------------------------------------------------------
+	// Configure logger
+
+	events := logger.Events{}
+	traceIDFn := func(ctx context.Context) string {
+		return web.GetTraceID(ctx)
+	}
+	log := logger.NewWithEvents(os.Stdout, logger.LevelInfo, "CRITIQUEFY", traceIDFn, events)
+
+	ctx := context.Background()
+
+	if err := run(ctx, log); err != nil {
+		log.Error(ctx, "startup", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, log *logger.Logger) error {
+	log.Info(ctx, "startup", "GOMAXPROCS", runtime.GOMAXPROCS(0))
+
+	// -----------------------------------------------------------------
+	// Configuration
+
+	cfg := struct {
+		conf.Version
+		Web struct {
+			ReadTimeout        time.Duration `conf:"default:5s"`
+			WriteTimeout       time.Duration `conf:"default:10s"`
+			IdleTimeout        time.Duration `conf:"default:120s"`
+			ShutdownTimeout    time.Duration `conf:"default:20s"`
+			APIHost            string        `conf:"default:0.0.0.0:3000"`
+			DebugHost          string        `conf:"default:0.0.0.0:3010"`
+			CORSAllowedOrigins []string      `conf:"default:*,mask"`
+		}
+		Auth struct {
+			KeysFolder string `conf:"default:zarf/keys/"`
+			ActiveKID  string `conf:"default:1eba8606-9e70-411c-9d2f-e922431cfa37"`
+			Issuer     string `conf:"default:critiquefy"`
+		}
+	}{
+		Version: conf.Version{
+			Build: build,
+			Desc:  "Critiquefy",
+		},
+	}
+
+	const prefix = "CRITIQUEFY"
+	help, err := conf.Parse(prefix, &cfg)
+	if err != nil {
+		if errors.Is(err, conf.ErrHelpWanted) {
+			fmt.Println(help)
+			return nil
+		}
+		return fmt.Errorf("parsing config: %w", err)
+	}
+
+	// -----------------------------------------------------------------
+	// Starting App
+
+	log.Info(ctx, "starting service", "status", "initializing authentication")
+
+	ks := keystore.New()
+	if _, err := ks.LoadByFileSystem(os.DirFS(cfg.Auth.KeysFolder)); err != nil {
+		return fmt.Errorf("reading keys: %w", err)
+	}
+
+	return nil
+}
