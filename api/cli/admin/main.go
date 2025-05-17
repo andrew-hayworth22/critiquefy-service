@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/andrew-hayworth22/critiquefy-service/api/cli/admin/commands"
 	"github.com/andrew-hayworth22/critiquefy-service/foundation/logger"
-	"github.com/andrew-hayworth22/critiquefy-service/tooling/admin/commands"
 	"github.com/ardanlabs/conf/v3"
 )
 
