@@ -21,6 +21,15 @@ type App struct {
 	appMiddleware []Middleware
 }
 
+// NewApp creates a new web application
+func NewApp(shutdown chan os.Signal, appMiddleware ...Middleware) *App {
+	return &App{
+		ServeMux:      http.NewServeMux(),
+		shutdown:      shutdown,
+		appMiddleware: appMiddleware,
+	}
+}
+
 // SignalShutdown shuts down the web app
 func (a *App) SignalShutdown() {
 	a.shutdown <- syscall.SIGTERM
