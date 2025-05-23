@@ -14,13 +14,13 @@ import (
 	"github.com/andrew-hayworth22/critiquefy-service/api/monolith/debug"
 	"github.com/andrew-hayworth22/critiquefy-service/api/monolith/mux"
 	"github.com/andrew-hayworth22/critiquefy-service/app/auth"
+	"github.com/andrew-hayworth22/critiquefy-service/business/data/sqldb"
 	"github.com/andrew-hayworth22/critiquefy-service/foundation/keystore"
 	"github.com/andrew-hayworth22/critiquefy-service/foundation/logger"
 	"github.com/andrew-hayworth22/critiquefy-service/foundation/web"
 	"github.com/ardanlabs/conf/v3"
+	"github.com/joho/godotenv"
 )
-
-var build = "develop"
 
 func main() {
 	// -----------------------------------------------------------------
@@ -46,8 +46,17 @@ func run(ctx context.Context, log *logger.Logger) error {
 	// -----------------------------------------------------------------
 	// Configuration
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Error(ctx, "startup", err)
+	}
+
 	cfg := struct {
-		conf.Version
+		Version struct {
+			Build       string `conf:"default:'DEV'"`
+			Number      string `conf:"default:'0.0.1'"`
+			Description string `conf:"default:'Critiquefy DEV 0.0.1'"`
+		}
 		Web struct {
 			ReadTimeout        time.Duration `conf:"default:5s"`
 			WriteTimeout       time.Duration `conf:"default:10s"`
@@ -62,12 +71,10 @@ func run(ctx context.Context, log *logger.Logger) error {
 			ActiveKID  string `conf:"default:1eba8606-9e70-411c-9d2f-e922431cfa37"`
 			Issuer     string `conf:"default:critiquefy"`
 		}
-	}{
-		Version: conf.Version{
-			Build: build,
-			Desc:  "Critiquefy",
-		},
-	}
+		DB struct {
+			URL string `conf:"default:'postgresql://user:password@localhost/critiquefy'"`
+		}
+	}{}
 
 	const prefix = "CRITIQUEFY"
 	help, err := conf.Parse(prefix, &cfg)
@@ -100,6 +107,19 @@ func run(ctx context.Context, log *logger.Logger) error {
 	}
 
 	// -----------------------------------------------------------------
+	// Database Support
+
+	log.Info(ctx, "startup", "status", "initializing database support")
+
+	db, err := sqldb.Open(ctx, sqldb.Config{
+		URL: cfg.DB.URL,
+	})
+	if err != nil {
+		return fmt.Errorf("connecting to DB: %w", err)
+	}
+	defer db.Close()
+
+	// -----------------------------------------------------------------
 	// Starting Debug Service
 
 	go func() {
@@ -120,7 +140,7 @@ func run(ctx context.Context, log *logger.Logger) error {
 
 	api := http.Server{
 		Addr:         cfg.Web.APIHost,
-		Handler:      mux.WebAPI(log, auth, shutdown),
+		Handler:      mux.WebAPI(cfg.Version.Build, log, db, auth, shutdown),
 		ReadTimeout:  cfg.Web.ReadTimeout,
 		WriteTimeout: cfg.Web.WriteTimeout,
 		IdleTimeout:  cfg.Web.IdleTimeout,

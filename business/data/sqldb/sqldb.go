@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -22,20 +23,28 @@ var (
 
 // Config defines what is needed to connect to the database
 type Config struct {
-	URL string
+	URL          string
+	MaxIdleConns int
+	MaxOpenConns int
 }
 
-// Open creates a connection to the database based on the configuration
-func Open(ctx context.Context, cfg Config) (*pgx.Conn, error) {
-	conn, err := pgx.Connect(ctx, cfg.URL)
+// Open creates a connection pool to the database based on the configuration
+func Open(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
+	fmt.Println(cfg.URL)
+	poolCfg, err := pgxpool.ParseConfig(cfg.URL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing pool config: %w", err)
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to DB: %w", err)
 	}
-	return conn, nil
+	return pool, nil
 }
 
 // StatusCheck checks the connection to the database
-func StatusCheck(ctx context.Context, conn *pgx.Conn) error {
+func StatusCheck(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, time.Second)
@@ -44,8 +53,8 @@ func StatusCheck(ctx context.Context, conn *pgx.Conn) error {
 
 	var pingError error
 	for attempts := 1; ; attempts++ {
-		pingError = conn.Ping(ctx)
-		if pingError != nil {
+		pingError = pool.Ping(ctx)
+		if pingError == nil {
 			break
 		}
 		time.Sleep(time.Duration(attempts) * 100 * time.Millisecond)
@@ -60,6 +69,5 @@ func StatusCheck(ctx context.Context, conn *pgx.Conn) error {
 
 	const q = `SELECT true;`
 	var tmp bool
-	return conn.QueryRow(ctx, q).Scan(&tmp)
-
+	return pool.QueryRow(ctx, q).Scan(&tmp)
 }

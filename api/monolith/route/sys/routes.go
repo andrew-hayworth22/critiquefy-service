@@ -1,18 +1,14 @@
 package sys
 
 import (
-	"context"
-	"net/http"
-
+	"github.com/andrew-hayworth22/critiquefy-service/foundation/logger"
 	"github.com/andrew-hayworth22/critiquefy-service/foundation/web"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func liveness(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	status := struct {
-		Status string
-	}{
-		Status: "OK",
-	}
+func Routes(app *web.App, build string, log *logger.Logger, db *pgxpool.Pool) {
+	api := newAPI(build, log, db)
 
-	return web.Respond(ctx, w, status, http.StatusOK)
+	app.HandleNoAppMiddleware("GET /liveness", api.liveness)
+	app.HandleNoAppMiddleware("GET /readiness", api.readiness)
 }

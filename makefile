@@ -1,10 +1,9 @@
-include /$(PWD)/.env.local
+include /$(PWD)/.env
 
 ##############################################3
 # Variables
 
-VERSION := 0.0.1
-MONOLITH_IMAGE := critiquefy-service/monolith/$(VERSION)
+MONOLITH_IMAGE := critiquefy-service/monolith/$(CRITIQUEFY_VERSION_NUMBER)
 
 ##############################################3
 # Building and Running
@@ -16,7 +15,7 @@ build-docker:
 	docker build \
 		-f zarf/docker/dockerfile.monolith \
 		-t $(MONOLITH_IMAGE) \
-		--build-arg BUILD_REF=$(VERSION) \
+		--build-arg BUILD_REF=$(CRITIQUEFY_VERSION_NUMBER) \
 		--build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
 		.
 
@@ -49,4 +48,4 @@ admin-genkey:
 	go run tooling/admin/main.go genkey
 
 pgcli:
-	pgcli $(POSTGRES_CONNECTION)
+	pgcli $(CRITIQUEFY_DB_URL_CLI)
