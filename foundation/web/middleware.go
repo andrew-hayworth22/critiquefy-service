@@ -1,6 +1,6 @@
 package web
 
-// Middleware represents a handler wrapped in another handler
+// Middleware represents an HTTP handler wrapped in another handler
 type Middleware func(Handler) Handler
 
 // wrapMiddleware creates a Handler by wrapping middleware around a final handler

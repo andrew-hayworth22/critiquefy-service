@@ -1,3 +1,5 @@
+include /$(PWD)/.env.local
+
 ##############################################3
 # Variables
 
@@ -45,3 +47,6 @@ lint:
 
 admin-genkey:
 	go run tooling/admin/main.go genkey
+
+pgcli:
+	pgcli $(POSTGRES_CONNECTION)
